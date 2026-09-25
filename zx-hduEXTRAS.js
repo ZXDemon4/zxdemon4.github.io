@@ -2,17 +2,17 @@
   'use strict';
 
   if (!Scratch.extensions.unsandboxed) {
-    throw new Error('This extension must run Unsandboxed to manage sprite costumes and external fetch.');
+    throw new Error('This extension must run Unsandboxed to handle external fetches and costume management.');
   }
 
-  class HolyDiscordHDU {
+  class HDUExtras {
     constructor() {
       this.avatarCache = new Map();
     }
 
     getInfo() {
       return {
-        id: 'holydiscordhdu',
+        id: 'hduextras',
         name: 'HDU-EXTRAS',
         color1: '#5865F2',
         color2: '#4752C4',
@@ -22,6 +22,15 @@
             blockType: Scratch.BlockType.REPORTER,
             text: 'get discord avatar URL for user ID [USER_ID]',
             arguments: {
+              USER_ID: { type: Scratch.ArgumentType.STRING, defaultValue: '123456789012345678' }
+            }
+          },
+          {
+            opcode: 'fetchWidgetAvatar',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'get avatar URL from server widget [SERVER_ID] for user ID [USER_ID]',
+            arguments: {
+              SERVER_ID: { type: Scratch.ArgumentType.STRING, defaultValue: '123456789012345678' },
               USER_ID: { type: Scratch.ArgumentType.STRING, defaultValue: '123456789012345678' }
             }
           },
@@ -37,6 +46,9 @@
       };
     }
 
+    /**
+     * Standard avatar lookup using Lanyard API / Discord Default CDN fallback.
+     */
     async _getAvatarUrl(userId) {
       userId = String(userId || '').trim();
       if (!userId) return '';
@@ -47,7 +59,6 @@
 
       let avatarUrl = '';
 
-      // 1. Try fetching live presence data from Lanyard API
       try {
         const response = await Scratch.fetch(`https://api.lanyard.rest/v1/users/${userId}`);
         if (response.ok) {
@@ -64,7 +75,6 @@
         console.warn('Lanyard API error:', err);
       }
 
-      // 2. Fallback to Discord default embed avatar if live tracking isn't active for the user
       if (!avatarUrl) {
         try {
           const index = Number(BigInt(userId) % 5n);
@@ -76,6 +86,41 @@
 
       this.avatarCache.set(userId, avatarUrl);
       return avatarUrl;
+    }
+
+    /**
+     * Widget API lookup: Fetches the server widget JSON (widget.json) 
+     * to extract active member avatar URLs directly from a guild without Lanyard.
+     */
+    async fetchWidgetAvatar(args) {
+      const serverId = String(args.SERVER_ID || '').trim();
+      const userId = String(args.USER_ID || '').trim();
+
+      if (!serverId || !userId) return '';
+
+      const cacheKey = `widget_${serverId}_${userId}`;
+      if (this.avatarCache.has(cacheKey)) {
+        return this.avatarCache.get(cacheKey);
+      }
+
+      try {
+        const response = await Scratch.fetch(`https://discord.com/api/guilds/${serverId}/widget.json`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.members && Array.isArray(data.members)) {
+            const member = data.members.find(m => String(m.id) === userId);
+            if (member && member.avatar_url) {
+              this.avatarCache.set(cacheKey, member.avatar_url);
+              return member.avatar_url;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Discord Widget API error:', err);
+      }
+
+      // Fallback to primary avatar method if not found in active widget members
+      return await this._getAvatarUrl(userId);
     }
 
     async fetchDiscordAvatar(args) {
@@ -90,7 +135,6 @@
       if (!avatarUrl) return;
 
       try {
-        // Fetch image raw arrayBuffer
         const response = await Scratch.fetch(avatarUrl);
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
@@ -98,14 +142,12 @@
         const costumeName = `discord_${userId}`;
         const target = util.target;
 
-        // Check if costume already exists on this sprite
         const existingIdx = target.sprite.costumes.findIndex(c => c.name === costumeName);
         if (existingIdx !== -1) {
           target.setCostume(existingIdx);
           return;
         }
 
-        // Add dynamically loaded PNG to VM assets
         const asset = new Scratch.vm.runtime.storage.Asset(
           Scratch.vm.runtime.storage.AssetType.ImageBitmap,
           null,
@@ -124,7 +166,6 @@
           rotationCenterY: 128
         };
 
-        // Add costume and set target costume index
         await Scratch.vm.addCostume(costumeObject.assetId, costumeObject, target.id);
         const newIndex = target.sprite.costumes.length - 1;
         target.setCostume(newIndex);
@@ -134,5 +175,5 @@
     }
   }
 
-  Scratch.extensions.register(new HolyDiscordHDU());
+  Scratch.extensions.register(new HDUExtras());
 })(Scratch);
