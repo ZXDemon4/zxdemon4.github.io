@@ -6,17 +6,17 @@
             this.botToken = '';
             this.webhooks = Array(50).fill('');
 
-            // Discord Chat Fetcher state
+            // use jsonbin.io to fetch chats from a server, use any bot hosting websites, recommended: botghost
             this.binId = 'YOUR_BIN_ID';
             this.apiKey = '';
             this.messages = [];
             this.lastTimestamp = null;
 
-            // Live Gateway Cache for Bot-based Checks
+            // live gateway for bot checks
             this.gatewayWs = null;
-            this.presenceCache = new Map(); // userId -> status (online, idle, dnd, offline)
-            this.statusStartCache = new Map(); // userId -> timestamp in ms when status changed
-            this.customStatusCache = new Map(); // userId -> { state: string, emoji: string }
+            this.presenceCache = new Map(); 
+            this.statusStartCache = new Map(); 
+            this.customStatusCache = new Map(); 
             this.activeGuildId = null;
 
             // Cache for Widget fetching
@@ -33,9 +33,7 @@
                 color3: '#3C45A5',
 
                 blocks: [
-                    // ==========================================
-                    // 1. Discord Server Checker (Bot Token Required)
-                    // ==========================================
+                    // DC Checker, this requires a bot token! get the bot token from here: https://discord.com/developers/applications
                     {
                         opcode: 'setBotToken',
                         blockType: Scratch.BlockType.COMMAND,
@@ -110,9 +108,9 @@
 
                     '---',
 
-                    // ==========================================
-                    // 2. Widget Server Checker (No Token Required)
-                    // ==========================================
+                    
+                    // widget server checker, you need no bots for this
+                
                     {
                         opcode: 'fetchServerData',
                         blockType: Scratch.BlockType.REPORTER,
@@ -202,9 +200,9 @@
 
                     '---',
 
-                    // ==========================================
-                    // 3. Webhook Messager
-                    // ==========================================
+                    
+                    // use Webhooks to message, go to Apps and then Integrations and then Webhooks to make a webhook.
+                    
                     {
                         opcode: 'sendMessage',
                         blockType: Scratch.BlockType.COMMAND,
@@ -242,9 +240,9 @@
 
                     '---',
 
-                    // ==========================================
-                    // 4. Webhook Slot Manager
-                    // ==========================================
+                   
+                    // 4. Use multiple webhooks at once to message! (This is sometimes buggy and doesn't work after 15+ webhooks together.
+                    
                     {
                         opcode: 'setWebhookSlot',
                         blockType: Scratch.BlockType.COMMAND,
@@ -305,9 +303,9 @@
 
                     '---',
 
-                    // ==========================================
-                    // 5. Discord Chat Fetcher
-                    // ==========================================
+                   
+                    // Code for fetching the chats
+                    
                     {
                         opcode: 'setCredentials',
                         blockType: Scratch.BlockType.COMMAND,
@@ -427,7 +425,7 @@
             };
         }
 
-        // Helper to extract custom status text and emoji safely
+        // Extract the emojies and state of status.
         _parseCustomStatus(activities) {
             if (!Array.isArray(activities)) return { state: '', emoji: '' };
             
@@ -440,7 +438,7 @@
             return { state, emoji };
         }
 
-        // Helper to update status start times
+        // Start time, end time of recent moood
         _updateUserStatus(userId, newStatus) {
             const oldStatus = this.presenceCache.get(userId);
             if (oldStatus !== newStatus) {
@@ -449,9 +447,9 @@
             }
         }
 
-        // ==========================================
-        // Bot Gateway Live Connection
-        // ==========================================
+        
+        // Bot gateway live connection
+        
         setBotToken(args) {
             this.botToken = String(args.TOKEN).trim();
         }
@@ -499,7 +497,7 @@
                         }));
                     }
 
-                    // Process chunk presence data
+                    // Chunk prescnece data thingy
                     if (data.t === 'GUILD_MEMBERS_CHUNK') {
                         const presences = data.d && Array.isArray(data.d.presences) ? data.d.presences : [];
                         presences.forEach(p => {
@@ -511,7 +509,7 @@
                         });
                     }
 
-                    // Process live updates
+                    // Live updates from discord to give input
                     if (data.t === 'PRESENCE_UPDATE') {
                         if (data.d && data.d.user && data.d.user.id) {
                             const uid = String(data.d.user.id);
@@ -559,9 +557,9 @@
             return Math.floor((Date.now() - startTime) / 1000);
         }
 
-        // ==========================================
-        // Widget Checker
-        // ==========================================
+        
+        // Widget Checker for servers
+       
         async _getWidgetData(serverId) {
             const now = Date.now();
             if (this.widgetCache.has(serverId)) {
@@ -673,9 +671,9 @@
             return currentStatus === targetStatus;
         }
 
-        // ==========================================
-        // Methods: Webhook Messager
-        // ==========================================
+        
+        // Webhook Messager
+        
         async sendMessage(args) {
             const message = args.MESSAGE;
             const webhook = args.WEBHOOK;
@@ -764,9 +762,9 @@
             }
         }
 
-        // ==========================================
-        // Methods: Discord Chat Fetcher
-        // ==========================================
+        
+        // Discord chat fetcher using jsonbot.io
+        
         setCredentials(args) {
             this.binId = Scratch.Cast.toString(args.BIN_ID).trim();
             this.apiKey = Scratch.Cast.toString(args.KEY).trim();
