@@ -26,18 +26,22 @@
 
         getInfo() {
             return {
-                id: 'holyDiscordUnemployment',
-                name: 'holy discord unemployment',
+                id: 'hdu',
+                name: 'HDU',
                 color1: '#5865F2',
                 color2: '#4752C4',
                 color3: '#3C45A5',
 
                 blocks: [
-                    // DC Checker, this requires a bot token! get the bot token from here: https://discord.com/developers/applications
+                    // Server Check (requires a bot token, get a bot that you made / will make, and get the token from https://discord.com/developers/applications) 
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: 'Server Check'
+                    },
                     {
                         opcode: 'setBotToken',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Server Checker: set bot token to [TOKEN]',
+                        text: 'set bot token to [TOKEN]',
                         arguments: {
                             TOKEN: {
                                 type: Scratch.ArgumentType.STRING,
@@ -48,7 +52,7 @@
                     {
                         opcode: 'connectGateway',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Server Checker: start live tracker for server [SERVER_ID]',
+                        text: 'start live tracker for server [SERVER_ID]',
                         arguments: {
                             SERVER_ID: {
                                 type: Scratch.ArgumentType.STRING,
@@ -59,7 +63,7 @@
                     {
                         opcode: 'checkUserStatusBot',
                         blockType: Scratch.BlockType.BOOLEAN,
-                        text: 'Server Checker: user ID [USER_ID] status is [STATUS]?',
+                        text: 'user ID [USER_ID] status is [STATUS]?',
                         arguments: {
                             USER_ID: {
                                 type: Scratch.ArgumentType.STRING,
@@ -75,7 +79,7 @@
                     {
                         opcode: 'getUserCustomStatus',
                         blockType: Scratch.BlockType.REPORTER,
-                        text: 'Server Checker: get user ID [USER_ID] custom status text',
+                        text: 'get user ID [USER_ID] custom status text',
                         arguments: {
                             USER_ID: {
                                 type: Scratch.ArgumentType.STRING,
@@ -86,7 +90,7 @@
                     {
                         opcode: 'getUserCustomStatusEmoji',
                         blockType: Scratch.BlockType.REPORTER,
-                        text: 'Server Checker: get user ID [USER_ID] custom status emoji',
+                        text: 'get user ID [USER_ID] custom status emoji',
                         arguments: {
                             USER_ID: {
                                 type: Scratch.ArgumentType.STRING,
@@ -97,7 +101,7 @@
                     {
                         opcode: 'getStatusDurationSeconds',
                         blockType: Scratch.BlockType.REPORTER,
-                        text: 'Server Checker: seconds user ID [USER_ID] has been in current status',
+                        text: 'seconds user ID [USER_ID] has been in current status',
                         arguments: {
                             USER_ID: {
                                 type: Scratch.ArgumentType.STRING,
@@ -106,15 +110,15 @@
                         }
                     },
 
-                    '---',
-
-                    
-                    // widget server checker, you need no bots for this
-                
+                    // Discord Widget Check (no bot required)
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: 'Discord Widget Check'
+                    },
                     {
                         opcode: 'fetchServerData',
                         blockType: Scratch.BlockType.REPORTER,
-                        text: 'Widget Checker: fetch [DATA_TYPE] from server [SERVER_ID] with [MEMBER_LIMIT] users',
+                        text: 'fetch [DATA_TYPE] from server [SERVER_ID] with [MEMBER_LIMIT] users',
                         arguments: {
                             DATA_TYPE: {
                                 type: Scratch.ArgumentType.STRING,
@@ -135,7 +139,7 @@
                     {
                         opcode: 'isUserIdOnline',
                         blockType: Scratch.BlockType.BOOLEAN,
-                        text: 'Widget Checker: is user ID [USER_ID] online in server [SERVER_ID]?',
+                        text: 'is user ID [USER_ID] online in server [SERVER_ID]?',
                         arguments: {
                             USER_ID: {
                                 type: Scratch.ArgumentType.STRING,
@@ -150,7 +154,7 @@
                     {
                         opcode: 'isDisplayNameOnline',
                         blockType: Scratch.BlockType.BOOLEAN,
-                        text: 'Widget Checker: display name [DISPLAY_NAME] online in server [SERVER_ID]?',
+                        text: 'display name [DISPLAY_NAME] online in server [SERVER_ID]?',
                         arguments: {
                             DISPLAY_NAME: {
                                 type: Scratch.ArgumentType.STRING,
@@ -165,7 +169,7 @@
                     {
                         opcode: 'isUsernameOnline',
                         blockType: Scratch.BlockType.BOOLEAN,
-                        text: 'Widget Checker: username [USERNAME] online in server [SERVER_ID]?',
+                        text: 'username [USERNAME] online in server [SERVER_ID]?',
                         arguments: {
                             USERNAME: {
                                 type: Scratch.ArgumentType.STRING,
@@ -180,7 +184,7 @@
                     {
                         opcode: 'isUserStatus',
                         blockType: Scratch.BlockType.BOOLEAN,
-                        text: 'Widget Checker: is user ID [USER_ID] [STATUS] in server [SERVER_ID]?',
+                        text: 'is user ID [USER_ID] [STATUS] in server [SERVER_ID]?',
                         arguments: {
                             USER_ID: {
                                 type: Scratch.ArgumentType.STRING,
@@ -198,15 +202,15 @@
                         }
                     },
 
-                    '---',
-
-                    
-                    // use Webhooks to message, go to Apps and then Integrations and then Webhooks to make a webhook.
-                    
+                    // Webhook Manager (Apps > Integrations > Webhooks to make one)
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: 'Webhook Manager'
+                    },
                     {
                         opcode: 'sendMessage',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Webhook Messager: send message [MESSAGE] to webhook [WEBHOOK]',
+                        text: 'send message [MESSAGE] to webhook [WEBHOOK]',
                         arguments: {
                             MESSAGE: {
                                 type: Scratch.ArgumentType.STRING,
@@ -221,7 +225,7 @@
                     {
                         opcode: 'sendWebhookPing',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Webhook Messager: send ping to webhook [WEBHOOK_URL] user ID [USER_ID] with message [MESSAGE]',
+                        text: 'send ping to webhook [WEBHOOK_URL] user ID [USER_ID] with message [MESSAGE]',
                         arguments: {
                             WEBHOOK_URL: {
                                 type: Scratch.ArgumentType.STRING,
@@ -238,15 +242,15 @@
                         }
                     },
 
-                    '---',
-
-                   
-                    // 4. Use multiple webhooks at once to message! (This is sometimes buggy and doesn't work after 15+ webhooks together.
-                    
+                    // Webhook Slot Manager (can be buggy past 15+ webhooks at once)
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: 'Webhook Slot Manager'
+                    },
                     {
                         opcode: 'setWebhookSlot',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Slot Manager: set webhook slot [SLOT] to URL [URL]',
+                        text: 'set webhook slot [SLOT] to URL [URL]',
                         arguments: {
                             SLOT: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -261,7 +265,7 @@
                     {
                         opcode: 'sendMessageToSlot',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Slot Manager: send message [MESSAGE] to stored webhook slot [SLOT]',
+                        text: 'send message [MESSAGE] to stored webhook slot [SLOT]',
                         arguments: {
                             MESSAGE: {
                                 type: Scratch.ArgumentType.STRING,
@@ -276,7 +280,7 @@
                     {
                         opcode: 'sendMessageToAllSlots',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Slot Manager: send message [MESSAGE] to ALL stored webhooks',
+                        text: 'send message [MESSAGE] to ALL stored webhooks',
                         arguments: {
                             MESSAGE: {
                                 type: Scratch.ArgumentType.STRING,
@@ -287,7 +291,7 @@
                     {
                         opcode: 'getWebhookSlot',
                         blockType: Scratch.BlockType.REPORTER,
-                        text: 'Slot Manager: stored webhook in slot [SLOT]',
+                        text: 'stored webhook in slot [SLOT]',
                         arguments: {
                             SLOT: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -298,18 +302,18 @@
                     {
                         opcode: 'clearAllWebhooks',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Slot Manager: clear all stored webhooks'
+                        text: 'clear all stored webhooks'
                     },
 
-                    '---',
-
-                   
-                    // Code for fetching the chats
-                    
+                    // Chat Fetcher (uses jsonbin.io to fetch chats from a server, use any bot hosting site, recommended: botghost) 
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: 'Chat Fetcher'
+                    },
                     {
                         opcode: 'setCredentials',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Chat Fetcher: set Bin ID [BIN_ID] and Access Key [KEY]',
+                        text: 'set Bin ID [BIN_ID] and Access Key [KEY]',
                         arguments: {
                             BIN_ID: {
                                 type: Scratch.ArgumentType.STRING,
@@ -324,17 +328,17 @@
                     {
                         opcode: 'fetchHistory',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Chat Fetcher: fetch discord chat history'
+                        text: 'fetch discord chat history'
                     },
                     {
                         opcode: 'getMessageCount',
                         blockType: Scratch.BlockType.REPORTER,
-                        text: 'Chat Fetcher: total messages count'
+                        text: 'total messages count'
                     },
                     {
                         opcode: 'getItemAtIndex',
                         blockType: Scratch.BlockType.REPORTER,
-                        text: 'Chat Fetcher: [PROP] at index [INDEX]',
+                        text: '[PROP] at index [INDEX]',
                         arguments: {
                             PROP: {
                                 type: Scratch.ArgumentType.STRING,
@@ -350,7 +354,7 @@
                     {
                         opcode: 'getLatestProp',
                         blockType: Scratch.BlockType.REPORTER,
-                        text: 'Chat Fetcher: latest [PROP]',
+                        text: 'latest [PROP]',
                         arguments: {
                             PROP: {
                                 type: Scratch.ArgumentType.STRING,
@@ -362,7 +366,7 @@
                     {
                         opcode: 'clearHistory',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Chat Fetcher: clear local message history'
+                        text: 'clear local message history'
                     }
                 ],
 
@@ -425,7 +429,7 @@
             };
         }
 
-        // Extract the emojies and state of status.
+        // Extract the emojies and state of status...
         _parseCustomStatus(activities) {
             if (!Array.isArray(activities)) return { state: '', emoji: '' };
             
@@ -438,7 +442,7 @@
             return { state, emoji };
         }
 
-        // Start time, end time of recent moood
+        // start time, end time of recent moood
         _updateUserStatus(userId, newStatus) {
             const oldStatus = this.presenceCache.get(userId);
             if (oldStatus !== newStatus) {
@@ -448,7 +452,7 @@
         }
 
         
-        // Bot gateway live connection
+        // bot live connect i think
         
         setBotToken(args) {
             this.botToken = String(args.TOKEN).trim();
@@ -478,7 +482,7 @@
                             op: 2,
                             d: {
                                 token: this.botToken,
-                                intents: 2 | 256, // GUILD_MEMBERS + GUILD_PRESENCES
+                                intents: 2 | 256, // guild members and guild prenscnscgjdjhsdhbjndsfnmpg;dpskfjgmnighsdjgpisdfhpkjimnsdfag
                                 properties: { os: 'browser', browser: 'PenguinMod', device: 'PenguinMod' }
                             }
                         }));
@@ -672,7 +676,7 @@
         }
 
         
-        // Webhook Messager
+        // Webhook messager
         
         async sendMessage(args) {
             const message = args.MESSAGE;
@@ -711,9 +715,9 @@
             } catch (err) {}
         }
 
-        // ==========================================
-        // Methods: Webhook Slot Manager
-        // ==========================================
+        
+        // Webhook slot managing
+        
         setWebhookSlot(args) {
             const slotIndex = Math.max(1, Math.min(50, Math.floor(Number(args.SLOT) || 1))) - 1;
             this.webhooks[slotIndex] = String(args.URL).trim();
