@@ -27,7 +27,7 @@
         getInfo() {
             return {
                 id: 'hdu',
-                name: 'HDU',
+                name: 'HDU V6',
                 color1: '#5865F2',
                 color2: '#4752C4',
                 color3: '#3C45A5',
