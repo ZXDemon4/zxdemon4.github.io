@@ -8,7 +8,7 @@
     fontLink.href = 'https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap';
     document.head.appendChild(fontLink);
   }
-const ICON_URI = 'https://raw.githubusercontent.com/ZXDemon4/zxdemon4.github.io/main/difetchplus-icon.svg';
+const ICON_URI = 'https://raw.githubusercontent.com/ZXDemon4/zxdemon4.github.io/refs/heads/main/difetch%2Bicon.svg';
  const ICON_SIZE = '128px';
 
   const ICON_URLS = new Set([
