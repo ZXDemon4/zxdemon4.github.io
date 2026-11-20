@@ -2,7 +2,7 @@
   'use strict';
 
   if (!Scratch.extensions.unsandboxed) {
-    throw new Error('sprunkassets must run unsandboxed!');
+    throw new Error('sporunki sprunki sprunki getg funkly funky funky');
   }
 
   const ICON_URI = 'https://raw.githubusercontent.com/ZXDemon4/zxdemon4.github.io/refs/heads/main/sprunkassetsicon.svg';
