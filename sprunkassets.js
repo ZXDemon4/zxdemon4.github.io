@@ -108,26 +108,54 @@
   const SKIP_CLASS = /gallery|reference|navbox|hatnote|mw-references|ambox|warning|trivia/i;
   const SKIP_TEXT = /sensitive|may contain|trypophobia|excess or mild profanity|taboo|another page/i;
 
-  function injectStyle() {
-    const old = document.getElementById('sprunkassets-style');
-    if (old) old.remove();
+function injectStyle() {
+  const old = document.getElementById('sprunkassets-style');
+  if (old) old.remove();
 
-    const style = document.createElement('style');
-    style.id = 'sprunkassets-style';
-    style.textContent = `
-      g.blocklyDraggable:has(path[fill="${BLOCK_COLOR}"]) text.blocklyText:not(g.blocklyEditableText text) {
-        fill: #ffffff !important;
-        stroke: none !important;
-        stroke-width: 0 !important;
-        paint-order: normal !important;
+  const style = document.createElement('style');
+  style.id = 'sprunkassets-style';
+  style.textContent = `
+    g.blocklyDraggable:has(path[fill="${BLOCK_COLOR}"]) text.blocklyText:not(g.blocklyEditableText text) {
+      fill: #ffffff !important;
+      stroke: none !important;
+      stroke-width: 0 !important;
+      paint-order: normal !important;
+    }
+    g.blocklyDraggable:has(path[fill="${BLOCK_COLOR}"]) g.blocklyEditableText text.blocklyText {
+      fill: #575e75 !important;
+      stroke: none !important;
+    }
+
+    @media (max-width: 760px) {
+      #sprunkassets-wiki, #sprunkassets-logo, #sprunkassets-preview, #sprunkassets-support {
+        left: 6px !important; right: 6px !important; top: 6px !important; bottom: auto !important;
+        width: auto !important; min-width: 0 !important; max-width: calc(100vw - 12px) !important;
+        height: calc(100vh - 12px) !important; height: calc(100dvh - 12px) !important;
+        max-height: calc(100dvh - 12px) !important; resize: none !important;
       }
-      g.blocklyDraggable:has(path[fill="${BLOCK_COLOR}"]) g.blocklyEditableText text.blocklyText {
-        fill: #575e75 !important;
-        stroke: none !important;
+      .sa-float {
+        left: 6px !important; right: 6px !important; top: 56px !important; width: auto !important;
+        min-width: 0 !important; max-width: calc(100vw - 12px) !important;
+        height: auto !important; max-height: 60dvh !important; resize: none !important;
       }
-    `;
-    document.head.appendChild(style);
-  }
+      .sa-body-row, .sa-preview-body {
+        flex-direction: column !important; overflow-y: auto !important;
+      }
+      .sa-side-col { width: auto !important; border-left: none !important; padding-left: 0 !important; overflow: visible !important; }
+      .sa-grid2 { grid-template-columns: 1fr !important; }
+      .sa-canvas-box { height: 180px !important; flex: none !important; }
+      .sa-preview-left { flex: none !important; }
+      .sa-preview-canvas-box { height: 40dvh !important; flex: none !important; }
+      .sa-preview-right {
+        width: auto !important; flex: 1 1 auto !important; min-height: 0 !important;
+        border-left: none !important; border-top: 1px solid #333;
+      }
+      button { min-height: 36px; }
+      input, select, textarea { font-size: 16px !important; }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
   function sniffFormat(bytes) {
     const text = (start, len) => String.fromCharCode(...bytes.subarray(start, start + len));
@@ -154,55 +182,35 @@
     return null;
   }
 
-  function fandomUrlCandidates(url) {
-    const u = String(url || '');
-    const out = [];
-    const add = x => { if (x && !out.includes(x)) out.push(x); };
-    add(u);
-    try {
-      const noHash = u.split('#')[0];
-      const noQuery = noHash.split('?')[0];
-      add(noQuery);
-      const noRev = noQuery.replace(/\/revision\/[^/]+$/i, '');
-      add(noRev);
-      if (/\/revision\//i.test(noQuery)) {
-        const base = noQuery.replace(/\/revision\/[^/]+$/i, '');
-        add(base + '/revision/latest');
-      }
-      if (noRev.includes('static.wikia.nocookie.net')) {
-        add(noRev.replace('static.wikia.nocookie.net', 'vignette.wikia.nocookie.net'));
-        add(noRev.replace('static.wikia.nocookie.net', 'static.wikia.nocookie.net') + '/revision/latest');
-      }
-      if (noRev.includes('vignette.wikia.nocookie.net')) {
-        add(noRev.replace('vignette.wikia.nocookie.net', 'static.wikia.nocookie.net'));
-      }
-    } catch (e) { /* keep original only */ }
-    return out;
+function fandomUrlCandidates(url) {
+  const u = String(url || '');
+  const out = [];
+  const add = x => { if (x && !out.includes(x)) out.push(x); };
+  const noQuery = u.split('#')[0].split('?')[0];
+  add(noQuery.replace(/\/revision\/[^/]+$/i, ''));
+  add(u);
+  if (/static\.wikia\.nocookie\.net/i.test(noQuery)) {
+    add(noQuery.replace('static.wikia.nocookie.net', 'vignette.wikia.nocookie.net').replace(/\/revision\/[^/]+$/i, ''));
   }
+  return out;
+}
 
-  async function download(url) {
-    const candidates = fandomUrlCandidates(url);
-    let lastErr = null;
-    for (const candidate of candidates) {
-      try {
-        const res = await fetch(candidate, { redirect: 'follow' });
-        if (!res.ok) {
-          lastErr = new Error(`HTTP ${res.status} for ${candidate}`);
-          continue;
-        }
-        const buffer = await res.arrayBuffer();
-        if (!buffer || buffer.byteLength < 8) {
-          lastErr = new Error('empty response for ' + candidate);
-          continue;
-        }
-        const mime = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-        return { buffer, bytes: new Uint8Array(buffer), mime, url: candidate };
-      } catch (e) {
-        lastErr = e;
-      }
+async function download(url) {
+  let lastErr = null;
+  for (const candidate of fandomUrlCandidates(url)) {
+    try {
+      const res = await fetch(candidate);
+      if (!res.ok) { lastErr = new Error(`HTTP ${res.status} for ${candidate}`); continue; }
+      const buffer = await res.arrayBuffer();
+      if (!buffer || buffer.byteLength < 8) { lastErr = new Error('empty response'); continue; }
+      const mime = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      return { buffer, bytes: new Uint8Array(buffer), mime, url: candidate };
+    } catch (e) {
+      lastErr = e;
     }
-    throw lastErr || new Error('HTTP failed for ' + url);
   }
+  throw lastErr || new Error('download failed for ' + url);
+}
 
   async function imageSize(buffer, format) {
     const type = format === 'svg' ? 'image/svg+xml' : 'image/' + (format === 'jpg' ? 'jpeg' : format);
@@ -898,6 +906,7 @@
     img.loading = 'lazy';
     img.src = f.url;
     img.alt = f.name;
+img.onerror = () => { if (f.urlAlt && img.src !== f.urlAlt) img.src = f.urlAlt; };
 
     const name = el('div', { fontSize: '11px', opacity: '0.7', wordBreak: 'break-all' }, f.name);
     const row = el('div', { display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' });
@@ -1041,6 +1050,7 @@
       borderRadius: '50%', color: '#ffffff', fontSize: '11px', fontWeight: 'bold',
       display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
     }, 'X');
+    closeBtn.setAttribute('data-sa-close', '1');
     closeBtn.addEventListener('click', e => {
       e.stopPropagation();
       hideWindow();
@@ -1105,32 +1115,7 @@
     win.append(bgImg, header, body);
     document.body.appendChild(win);
 
-    let drag = null;
-    let frame = null;
-    let pendingX = 0, pendingY = 0;
-
-    header.addEventListener('mousedown', e => {
-      if (e.target.closest('button')) return;
-      const r = win.getBoundingClientRect();
-      drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, h: r.height };
-      e.preventDefault();
-    });
-
-    document.addEventListener('mousemove', e => {
-      if (!drag) return;
-      pendingX = Math.max(0, Math.min(e.clientX - drag.dx, window.innerWidth - drag.w));
-      pendingY = Math.max(0, Math.min(e.clientY - drag.dy, window.innerHeight - drag.h));
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        win.style.left = pendingX + 'px';
-        win.style.top = pendingY + 'px';
-        win.style.right = 'auto';
-        win.style.bottom = 'auto';
-        frame = null;
-      });
-    });
-
-    document.addEventListener('mouseup', () => { drag = null; });
+    makeDraggable(header, win);
   }
 
   function showWindow() {
@@ -2101,6 +2086,34 @@
     });
   }
 
+function buildCreationsPanel() {
+  if (creationsPanel) return;
+  creationsPanel = el('div', {
+    position: 'fixed', top: '120px', left: '700px', width: '300px', maxHeight: '420px',
+    background: '#000', border: '2px solid #fff', borderRadius: '8px', zIndex: '999999',
+    display: 'none', flexDirection: 'column', overflow: 'hidden',
+    fontFamily: "'Rubik', sans-serif", color: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.75)'
+  });
+  creationsPanel.className = 'sa-float';
+  creationsPanel.id = 'sa-creations';
+  const head = el('div', {
+    background: '#141416', padding: '6px 10px', display: 'flex', alignItems: 'center',
+    justifyContent: 'space-between', borderBottom: '1px solid #333', flexShrink: '0'
+  });
+  head.append(
+    el('span', { fontSize: '13px', fontWeight: '700' }, 'my creations'),
+    button('clear all', () => { logoLog.length = 0; renderCreations(); })
+  );
+  const countEl = el('div', { fontSize: '11px', opacity: '0.7', padding: '4px 10px' }, '');
+  countEl.className = 'sa-creations-count';
+  const listBox = el('div', {
+    flex: '1', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px', minHeight: '0'
+  });
+  listBox.className = 'sa-creations-list';
+  creationsPanel.append(head, countEl, listBox);
+  document.body.appendChild(creationsPanel);
+}
+
   function toggleCreations() {
     buildCreationsPanel();
     creationsOpen = !creationsOpen;
@@ -2339,31 +2352,29 @@
     return r;
   }
 
-  function makeDraggable(handle, target) {
-    let drag = null;
-    let frame = null;
-    let px = 0, py = 0;
-    handle.addEventListener('mousedown', e => {
-      if (e.target.closest('button')) return;
-      const r = target.getBoundingClientRect();
-      drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, h: r.height };
-      e.preventDefault();
-    });
-    document.addEventListener('mousemove', e => {
-      if (!drag) return;
-      px = Math.max(0, Math.min(e.clientX - drag.dx, window.innerWidth - drag.w));
-      py = Math.max(0, Math.min(e.clientY - drag.dy, window.innerHeight - drag.h));
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        target.style.left = px + 'px';
-        target.style.top = py + 'px';
-        target.style.right = 'auto';
-        target.style.bottom = 'auto';
-        frame = null;
-      });
-    });
-    document.addEventListener('mouseup', () => { drag = null; });
-  }
+function makeDraggable(handle, target) {
+  handle.style.touchAction = 'none';
+  let drag = null;
+  handle.addEventListener('pointerdown', e => {
+    if (e.target.closest('button, a, input, select, textarea, [data-sa-close]')) return;
+    const r = target.getBoundingClientRect();
+    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, h: r.height, id: e.pointerId };
+    if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const x = Math.max(0, Math.min(Math.max(0, window.innerWidth - drag.w), e.clientX - drag.dx));
+    const y = Math.max(0, Math.min(Math.max(0, window.innerHeight - drag.h), e.clientY - drag.dy));
+    target.style.left = x + 'px';
+    target.style.top = y + 'px';
+    target.style.right = 'auto';
+    target.style.bottom = 'auto';
+  });
+  const end = () => { drag = null; };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
 
   function refreshFontOptions() {
     const sel = logoEls.fontSelect;
@@ -2603,6 +2614,7 @@ function canvasToLogo(e) {
       borderRadius: '50%', color: '#ffffff', fontSize: '11px', fontWeight: 'bold',
       display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
     }, 'X');
+    closeBtn.setAttribute('data-sa-close', '1');
     closeBtn.addEventListener('click', e => {
       e.stopPropagation();
       logoWin.style.display = 'none';
@@ -2621,6 +2633,7 @@ function canvasToLogo(e) {
       background: logo.bg || '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
     });
     logoEls.previewBox = previewBox;
+previewBox.className = 'sa-canvas-box';
     logoEls.canvas = document.createElement('canvas');
     logoEls.canvas.width = LOGO_W;
     logoEls.canvas.height = LOGO_H;
@@ -2716,6 +2729,7 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
     logoWin.appendChild(logoEls.fileInput);
 
     const grid = el('div', { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', flexShrink: '0' });
+grid.className = 'sa-grid2';
 
     const left = el('div', { display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '0' });
 
@@ -3055,12 +3069,15 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
       minHeight: '0', overflowY: 'auto', borderLeft: '1px solid #333', paddingLeft: '8px',
       boxSizing: 'border-box', gap: '8px'
     });
+logoEls.sideCol.className = 'sa-side-col';
+
 
     logoEls.bodyRow = el('div', {
       flex: '1', minHeight: '0', display: 'flex', flexDirection: 'column',
       gap: '10px', padding: '10px', boxSizing: 'border-box', overflow: 'hidden'
     });
     logoEls.bodyRow.append(logoEls.mainCol, logoEls.sideCol);
+logoEls.bodyRow.className = 'sa-body-row';
 
     logoWin.append(header, logoEls.bodyRow);
     document.body.appendChild(logoWin);
@@ -3382,144 +3399,137 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
     c.restore();
   }
 
-  function buildScene(fxWanted, skipBg) {
-    const scene = document.createElement('canvas');
-    scene.width = PREV_W;
-    scene.height = PREV_H;
-    const sc = scene.getContext('2d');
-    if (!skipBg) {
-      sc.fillStyle = preview.bg || '#000000';
-      sc.fillRect(0, 0, PREV_W, PREV_H);
-    }
+function drawShapeOn(sc, S) {
+  sc.save();
+  sc.globalAlpha = clamp(S.opacity == null ? 1 : S.opacity, 0, 1);
+  sc.strokeStyle = S.color || '#ffffff';
+  sc.fillStyle = S.fill || 'transparent';
+  sc.lineWidth = Math.max(1, S.strokeWidth || 3);
+  sc.lineCap = S.lineCap || 'round';
+  sc.lineJoin = S.lineJoin || 'round';
+  if (S.dash && S.dash > 0) sc.setLineDash([S.dash, S.gap == null ? S.dash : S.gap]);
+  else sc.setLineDash([]);
+  if (S.dashOffset) sc.lineDashOffset = S.dashOffset;
+  const hasFill = S.fill && S.fill !== 'transparent';
 
-    const take = o => !o || (o.fxOn !== false) === fxWanted;
-
-    const put = (fx, drawFn) => {
-      const e = renderElement(fx, drawFn);
-      sc.save();
-      sc.globalAlpha = clamp(fx.opacity, 0, 1);
-      sc.drawImage(e, 0, 0);
-      sc.restore();
-    };
-
-    if (preview.base.img && take(preview.base)) put(preview.base.fx, drawBaseOn);
-
-    preview.layers.forEach(L => {
-      if (!L.img || !take(L)) return;
-      const w = L.img.naturalWidth * L.scale / 100 * (L.sx || 1);
-      const h = L.img.naturalHeight * L.scale / 100 * (L.sy || 1);
-      put(L.fx, c => drawImgAt(c, L.img, L.x, L.y, w, h, L.rot, L.tx, L.ty));
-    });
-
-    preview.texts.forEach(T => { if (take(T)) put(T.fx, c => drawTextOn(c, T)); });
-
-    if (preview.overlay && preview.overlay.img && take(preview.overlay)) {
-      const o = preview.overlay.img;
-      const os = Math.min(PREV_W / o.naturalWidth, PREV_H / o.naturalHeight);
-      sc.save();
-      sc.globalAlpha = preview.overlay.opacity == null ? 0.5 : preview.overlay.opacity;
-      sc.drawImage(o, (PREV_W - o.naturalWidth * os) / 2, (PREV_H - o.naturalHeight * os) / 2,
-        o.naturalWidth * os, o.naturalHeight * os);
-      sc.restore();
-    }
-
-    (preview.shapes || []).forEach(S => {
-      if (!S) return;
-      sc.save();
-      sc.globalAlpha = clamp(S.opacity == null ? 1 : S.opacity, 0, 1);
-      sc.strokeStyle = S.color || '#ffffff';
-      sc.fillStyle = S.fill || 'transparent';
-      sc.lineWidth = Math.max(1, S.strokeWidth || 3);
-      sc.lineCap = S.lineCap || 'round';
-      sc.lineJoin = S.lineJoin || 'round';
-      if (S.dash && S.dash > 0) sc.setLineDash([S.dash, S.gap == null ? S.dash : S.gap]);
-      else sc.setLineDash([]);
-      if (S.dashOffset) sc.lineDashOffset = S.dashOffset;
-
-      if (S.kind === 'line') {
-        sc.beginPath();
-        const pts = S.points || [];
-        if (pts.length >= 2) {
-          if (S.curve && pts.length >= 3) {
-            sc.moveTo(pts[0].x, pts[0].y);
-            for (let i = 1; i < pts.length - 1; i++) {
-              const xc = (pts[i].x + pts[i + 1].x) / 2;
-              const yc = (pts[i].y + pts[i + 1].y) / 2;
-              sc.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
-            }
-            const last = pts[pts.length - 1];
-            const prev = pts[pts.length - 2];
-            sc.quadraticCurveTo(prev.x, prev.y, last.x, last.y);
-          } else {
-            sc.moveTo(pts[0].x, pts[0].y);
-            for (let i = 1; i < pts.length; i++) sc.lineTo(pts[i].x, pts[i].y);
-          }
-          sc.stroke();
-        }
-      } else {
-        const rot = (S.rot || 0) * Math.PI / 180;
-        sc.translate(S.x, S.y);
-        sc.rotate(rot);
-        if (S.kind === 'rect') {
-          const x = -S.w / 2, y = -S.h / 2;
-          const r = Math.max(0, Math.min(S.corners || 0, Math.min(S.w, S.h) / 2));
-          sc.beginPath();
-          if (sc.roundRect) sc.roundRect(x, y, S.w, S.h, r);
-          else {
-            sc.moveTo(x + r, y);
-            sc.arcTo(x + S.w, y, x + S.w, y + S.h, r);
-            sc.arcTo(x + S.w, y + S.h, x, y + S.h, r);
-            sc.arcTo(x, y + S.h, x, y, r);
-            sc.arcTo(x, y, x + S.w, y, r);
-            sc.closePath();
-          }
-          if (S.fill && S.fill !== 'transparent') sc.fill();
-          sc.stroke();
-        } else if (S.kind === 'circle' || S.kind === 'oval') {
-          sc.beginPath();
-          const rx = Math.max(1, S.w / 2);
-          const ry = S.kind === 'circle' ? rx : Math.max(1, S.h / 2);
-          sc.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-          if (S.fill && S.fill !== 'transparent') sc.fill();
-          sc.stroke();
-        } else if (S.kind === 'triangle') {
-          sc.beginPath();
-          sc.moveTo(0, -S.h / 2);
-          sc.lineTo(S.w / 2, S.h / 2);
-          sc.lineTo(-S.w / 2, S.h / 2);
-          sc.closePath();
-          if (S.fill && S.fill !== 'transparent') sc.fill();
-          sc.stroke();
-        }
-      }
-      sc.restore();
-    });
-
-    (preview.drawStrokes || []).forEach(stroke => {
-      const pts = stroke.points || [];
-      if (pts.length < 2) return;
-      sc.save();
-      if (stroke.erase) {
-        sc.globalCompositeOperation = 'destination-out';
-        sc.strokeStyle = 'rgba(0,0,0,1)';
-        sc.globalAlpha = 1;
-      } else {
-        sc.globalCompositeOperation = 'source-over';
-        sc.strokeStyle = stroke.color || '#ffffff';
-        sc.globalAlpha = clamp(stroke.opacity == null ? 1 : stroke.opacity, 0, 1);
-      }
-      sc.lineWidth = Math.max(1, stroke.size || 8);
-      sc.lineCap = 'round';
-      sc.lineJoin = 'round';
+  if (S.kind === 'line') {
+    const pts = S.points || [];
+    if (pts.length >= 2) {
       sc.beginPath();
       sc.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) sc.lineTo(pts[i].x, pts[i].y);
+      if (S.curve && pts.length >= 3) {
+        for (let i = 1; i < pts.length - 1; i++) {
+          const xc = (pts[i].x + pts[i + 1].x) / 2, yc = (pts[i].y + pts[i + 1].y) / 2;
+          sc.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
+        }
+        const last = pts[pts.length - 1];
+        sc.lineTo(last.x, last.y);
+      } else {
+        for (let i = 1; i < pts.length; i++) sc.lineTo(pts[i].x, pts[i].y);
+      }
       sc.stroke();
-      sc.restore();
-    });
-
-    return scene;
+    }
+  } else {
+    sc.translate(S.x, S.y);
+    sc.rotate((S.rot || 0) * Math.PI / 180);
+    const w = Math.max(10, S.w || 40), h = Math.max(10, S.h || 40);
+    sc.beginPath();
+    if (S.kind === 'rect') {
+      const x = -w / 2, y = -h / 2;
+      const r = Math.max(0, Math.min(S.corners || 0, Math.min(w, h) / 2));
+      sc.moveTo(x + r, y);
+      sc.arcTo(x + w, y, x + w, y + h, r);
+      sc.arcTo(x + w, y + h, x, y + h, r);
+      sc.arcTo(x, y + h, x, y, r);
+      sc.arcTo(x, y, x + w, y, r);
+      sc.closePath();
+    } else if (S.kind === 'circle' || S.kind === 'oval') {
+      const rx = w / 2, ry = S.kind === 'circle' ? rx : h / 2;
+      sc.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    } else if (S.kind === 'triangle') {
+      sc.moveTo(0, -h / 2);
+      sc.lineTo(w / 2, h / 2);
+      sc.lineTo(-w / 2, h / 2);
+      sc.closePath();
+    }
+    if (hasFill) sc.fill();
+    sc.stroke();
   }
+  sc.restore();
+}
+
+function drawStrokeLayer() {
+  const c = document.createElement('canvas');
+  c.width = PREV_W;
+  c.height = PREV_H;
+  const sc = c.getContext('2d');
+  (preview.drawStrokes || []).forEach(stroke => {
+    const pts = stroke.points || [];
+    if (!pts.length) return;
+    sc.save();
+    sc.globalCompositeOperation = stroke.erase ? 'destination-out' : 'source-over';
+    sc.strokeStyle = stroke.erase ? '#000000' : (stroke.color || '#ffffff');
+    sc.globalAlpha = stroke.erase ? 1 : clamp(stroke.opacity == null ? 1 : stroke.opacity, 0, 1);
+    sc.lineWidth = Math.max(1, stroke.size || 8);
+    sc.lineCap = 'round';
+    sc.lineJoin = 'round';
+    sc.beginPath();
+    sc.moveTo(pts[0].x, pts[0].y);
+    if (pts.length === 1) sc.lineTo(pts[0].x + 0.01, pts[0].y + 0.01);
+    for (let i = 1; i < pts.length; i++) sc.lineTo(pts[i].x, pts[i].y);
+    sc.stroke();
+    sc.restore();
+  });
+  return c;
+}
+
+function buildScene(fxWanted, skipBg) {
+  const scene = document.createElement('canvas');
+  scene.width = PREV_W;
+  scene.height = PREV_H;
+  const sc = scene.getContext('2d');
+  if (!skipBg) {
+    sc.fillStyle = preview.bg || '#000000';
+    sc.fillRect(0, 0, PREV_W, PREV_H);
+  }
+
+  const take = o => !o || (o.fxOn !== false) === fxWanted;
+
+  const put = (fx, drawFn) => {
+    const e = renderElement(fx, drawFn);
+    sc.save();
+    sc.globalAlpha = clamp(fx.opacity, 0, 1);
+    sc.drawImage(e, 0, 0);
+    sc.restore();
+  };
+
+  if (preview.base.img && take(preview.base)) put(preview.base.fx, drawBaseOn);
+
+  preview.layers.forEach(L => {
+    if (!L.img || !take(L)) return;
+    const w = L.img.naturalWidth * L.scale / 100 * (L.sx || 1);
+    const h = L.img.naturalHeight * L.scale / 100 * (L.sy || 1);
+    put(L.fx, c => drawImgAt(c, L.img, L.x, L.y, w, h, L.rot, L.tx, L.ty));
+  });
+
+  preview.texts.forEach(T => { if (take(T)) put(T.fx, c => drawTextOn(c, T)); });
+
+  if (preview.overlay && preview.overlay.img && take(preview.overlay)) {
+    const o = preview.overlay.img;
+    const os = Math.min(PREV_W / o.naturalWidth, PREV_H / o.naturalHeight);
+    sc.save();
+    sc.globalAlpha = preview.overlay.opacity == null ? 0.5 : preview.overlay.opacity;
+    sc.drawImage(o, (PREV_W - o.naturalWidth * os) / 2, (PREV_H - o.naturalHeight * os) / 2,
+      o.naturalWidth * os, o.naturalHeight * os);
+    sc.restore();
+  }
+
+  if (fxWanted) {
+    (preview.shapes || []).forEach(S => { if (S) drawShapeOn(sc, S); });
+    sc.drawImage(drawStrokeLayer(), 0, 0);
+  }
+  return scene;
+}
 
   function posterizePass(canvas, levels) {
     const ctx = canvas.getContext('2d');
@@ -3870,18 +3880,27 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
     };
   }
 
-  function loadImgEl(url) {
-    return new Promise((resolve, reject) => {
-      const tryLoad = cors => {
-        const img = new Image();
-        if (cors) img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = () => (cors ? tryLoad(false) : reject(new Error('could not load image')));
-        img.src = url;
-      };
-      tryLoad(true);
-    });
-  }
+const TAINT_MSG = 'ts picture comes from another website just p ls save it and put here or im gonna be very angy!!! ';
+
+function decodeImg(src, tainted) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => { img.sprunkTainted = tainted; resolve(img); };
+    img.onerror = () => reject(new Error('could not load image'));
+    img.src = src;
+  });
+}
+
+async function loadImgEl(url) {
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const blob = await res.blob();
+      return await decodeImg(URL.createObjectURL(blob), false);
+    }
+  } catch (e) { /* blocked by the site, fall through */ }
+  return decodeImg(url, true);
+}
 
   async function setBaseFromUrl(url, name) {
     const img = await loadImgEl(url);
@@ -4699,6 +4718,7 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
       boxSizing: 'border-box', boxShadow: '0px 10px 30px rgba(0,0,0,0.75)',
       fontFamily: "'Rubik', sans-serif", color: '#ffffff'
     });
+    supportWin.id = 'sprunkassets-support';
     const head = el('div', {
       background: '#141416', padding: '8px 12px', cursor: 'move', display: 'flex',
       justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #333', flexShrink: '0'
@@ -4711,7 +4731,11 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
       borderRadius: '50%', color: '#ffffff', fontSize: '11px', fontWeight: 'bold',
       display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
     }, 'X');
-    closeBtn.addEventListener('click', () => { supportWin.style.display = 'none'; });
+    closeBtn.setAttribute('data-sa-close', '1');
+    closeBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      supportWin.style.display = 'none';
+    });
     head.append(icon, title, closeBtn);
 
     const body = el('div', {
@@ -4844,12 +4868,16 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
     return 'preview';
   }
 
-  function previewCanvasBlob() {
-    return new Promise((res, rej) => {
-      if (!prevEls.canvas) return rej(new Error('no preview canvas'));
-      prevEls.canvas.toBlob(b => (b ? res(b) : rej(new Error('could not make the png'))), 'image/png');
-    });
-  }
+function previewCanvasBlob() {
+  return new Promise((res, rej) => {
+    if (!prevEls.canvas) return rej(new Error('no preview canvas'));
+    try {
+      prevEls.canvas.toBlob(b => (b ? res(b) : rej(new Error(TAINT_MSG))), 'image/png');
+    } catch (e) {
+      rej(new Error(TAINT_MSG));
+    }
+  });
+}
 
   async function downloadPreviewPng() {
     drawPreview({ export: true });
@@ -4879,16 +4907,17 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
     setPrevStatus('added ' + previewFileBase() + ' to ' + target.getName());
   }
 
-  function makeFloatingPanel(opts) {
-    const w = el('div', {
-      position: 'fixed', top: opts.top || '80px', right: opts.right || '40px', left: opts.left || 'auto',
-      width: opts.width || '360px', height: opts.height || '420px',
-      minWidth: '240px', minHeight: '200px',
-      background: '#000', border: '2px solid #fff', borderRadius: '8px', zIndex: '1000000',
-      display: 'flex', flexDirection: 'column', overflow: 'hidden', resize: 'both',
-      fontFamily: "'Rubik', sans-serif", color: '#fff', boxSizing: 'border-box'
-    });
-    const head = el('div', {
+function makeFloatingPanel(opts) {
+  const w = el('div', {
+    position: 'fixed', top: opts.top || '80px', right: opts.right || '40px', left: opts.left || 'auto',
+    width: opts.width || '360px', height: opts.height || '420px',
+    minWidth: '240px', minHeight: '200px',
+    background: '#000', border: '2px solid #fff', borderRadius: '8px', zIndex: '1000000',
+    display: 'flex', flexDirection: 'column', overflow: 'hidden', resize: 'both',
+    fontFamily: "'Rubik', sans-serif", color: '#fff', boxSizing: 'border-box'
+  });
+  w.className = 'sa-float';
+  const head = el('div', {
       padding: '8px 10px', background: '#141416', borderBottom: '1px solid #333',
       display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'move', flexShrink: '0'
     });
@@ -4898,7 +4927,8 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
       borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
       cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', flexShrink: '0'
     }, 'X');
-    x.addEventListener('click', () => w.remove());
+    x.setAttribute('data-sa-close', '1');
+    x.addEventListener('click', e => { e.stopPropagation(); w.remove(); });
     head.append(x);
     const body = el('div', { flex: '1', minHeight: '0', overflowY: 'auto', padding: '8px', boxSizing: 'border-box' });
     w.append(head, body);
@@ -5021,220 +5051,202 @@ logoEls.canvas.addEventListener('pointercancel', releaseLogoDrag);
     panel.body.appendChild(list);
   }
 
-  function buildPreviewWindow() {
-    if (prevWin) prevWin.remove();
-    refreshers.length = 0;
+function itemFor(hit) {
+  if (!hit) return null;
+  if (hit.type === 'text') return preview.texts[hit.index] || null;
+  if (hit.type === 'shape') return preview.shapes[hit.index] || null;
+  return preview.layers[hit.index] || null;
+}
 
-    prevWin = el('div', {
-      position: 'fixed', top: '60px', left: '90px', width: '940px', height: '580px',
-      minWidth: '560px', minHeight: '380px', background: '#000000',
-      border: '2px solid #ffffff', borderRadius: '8px', zIndex: '999999',
-      display: 'none', flexDirection: 'column', resize: 'both', overflow: 'hidden',
-      boxSizing: 'border-box', boxShadow: '0px 10px 30px rgba(0,0,0,0.75)',
-      fontFamily: "'Rubik', sans-serif", userSelect: 'none', color: '#ffffff'
-    });
+function makeMoveState(hit, o, pt) {
+  const isLine = hit.type === 'shape' && o.kind === 'line';
+  const c = isLine ? shapeBoxOf(o) : { cx: o.x || 0, cy: o.y || 0 };
+  return {
+    mode: 'move', type: hit.type, index: hit.index,
+    ox: pt.x - c.cx, oy: pt.y - c.cy,
+    lineOrigin: isLine ? (o.points || []).map(p => ({ x: p.x, y: p.y })) : null,
+    startX: pt.x, startY: pt.y
+  };
+}
 
-    const header = el('div', {
-      background: '#141416', padding: '6px 12px', cursor: 'move', display: 'flex',
-      justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #333',
-      flexShrink: '0', boxSizing: 'border-box'
-    });
-    const icon = el('img', { height: '26px', width: '26px', objectFit: 'contain', pointerEvents: 'none' });
-    icon.src = ICON_URI;
-    icon.alt = 'sprunkassets';
-    const title = el('span', { fontSize: '13px', fontWeight: '700', marginLeft: '8px', flex: '1' }, 'sprunkassets');
-    const closeBtn = el('div', {
-      width: '20px', height: '20px', backgroundColor: '#8b0000', border: '1px solid #ffffff',
-      borderRadius: '50%', color: '#ffffff', fontSize: '11px', fontWeight: 'bold',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
-    }, 'X');
-    closeBtn.addEventListener('click', () => { prevWin.style.display = 'none'; });
-header.append(icon, title, closeBtn);
+function startStroke(pt, e) {
+  const t = preview.drawTool;
+  const stroke = {
+    points: [{ x: pt.x, y: pt.y }],
+    color: t.color || '#ffffff',
+    opacity: t.opacity == null ? 1 : t.opacity,
+    size: t.size || 8,
+    erase: !!t.erase
+  };
+  preview.drawStrokes.push(stroke);
+  dragState = { mode: 'draw', stroke };
+  prevEls.canvas.setPointerCapture(e.pointerId);
+  e.preventDefault();
+  scheduleDraw();
+}
 
-    const previewBox = el('div', {
-      flex: '1', minHeight: '0', border: '1.5px dashed #555', borderRadius: '8px',
-      background: preview.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      overflow: 'hidden', position: 'relative'
-    });
-    prevEls.previewBox = previewBox;
-    prevEls.canvas = document.createElement('canvas');
-    prevEls.canvas.width = PREV_W;
-    prevEls.canvas.height = PREV_H;
-    Object.assign(prevEls.canvas.style, { maxWidth: '100%', maxHeight: '100%', touchAction: 'none' });
-    prevEls.ctx = prevEls.canvas.getContext('2d');
-    previewBox.append(prevEls.canvas);
-
-    prevEls.canvas.addEventListener('pointerdown', e => {
-      const pt = canvasToPrev(e);
-
-      if (preview.drawTool && preview.drawTool.active) {
-        const hitFirst = hitTest(pt.x, pt.y);
-        if (hitFirst) {
-          turnDrawOff();
-          preview.sel = hitFirst;
-          const o = hitFirst.type === 'text' ? preview.texts[hitFirst.index]
-            : hitFirst.type === 'shape' ? preview.shapes[hitFirst.index]
-            : preview.layers[hitFirst.index];
-          if (o) {
-            const ox = hitFirst.type === 'shape' && o.kind === 'line'
-              ? shapeBoxOf(o).cx
-              : (o.x || 0);
-            const oy = hitFirst.type === 'shape' && o.kind === 'line'
-              ? shapeBoxOf(o).cy
-              : (o.y || 0);
-            dragState = {
-              mode: 'move',
-              isText: hitFirst.type === 'text',
-              isShape: hitFirst.type === 'shape',
-              index: hitFirst.index,
-              ox: pt.x - ox,
-              oy: pt.y - oy,
-              lineOrigin: hitFirst.type === 'shape' && o.kind === 'line'
-                ? (o.points || []).map(p => ({ x: p.x, y: p.y }))
-                : null,
-              startX: pt.x,
-              startY: pt.y
-            };
-            prevEls.canvas.setPointerCapture(e.pointerId);
-          }
-          refreshAll();
-          scheduleDraw();
-          e.preventDefault();
-          return;
-        }
-
-        const stroke = {
-          points: [{ x: pt.x, y: pt.y }],
-          color: preview.drawTool.color || '#ffffff',
-          opacity: preview.drawTool.opacity == null ? 1 : preview.drawTool.opacity,
-          size: preview.drawTool.size || 8,
-          erase: !!preview.drawTool.erase
-        };
-        preview.drawStrokes.push(stroke);
-        dragState = { mode: 'draw', stroke };
-        prevEls.canvas.setPointerCapture(e.pointerId);
-        scheduleDraw();
-        e.preventDefault();
-        return;
-      }
-
-      const sel = selectedPreviewBox();
-      if (sel) {
-        const spot = hitBoxHandle(sel.box, pt.x, pt.y, previewScale());
-        if (spot) {
-          dragState = {
-            mode: 'xf',
-            isText: !!sel.isText,
-            isShape: !!sel.isShape,
-            index: preview.sel.index,
-            drag: startBoxDrag(sel.box, spot, pt.x, pt.y, { ctrl: e.ctrlKey, alt: e.altKey })
-          };
-          prevEls.canvas.setPointerCapture(e.pointerId);
-          e.preventDefault();
-          return;
-        }
-      }
-      const hit = hitTest(pt.x, pt.y);
-      preview.sel = hit;
-      if (hit) {
-        const o = hit.type === 'text' ? preview.texts[hit.index]
-          : hit.type === 'shape' ? preview.shapes[hit.index]
-          : preview.layers[hit.index];
-        if (o) {
-          const ox = hit.type === 'shape' && o.kind === 'line' ? shapeBoxOf(o).cx : (o.x || 0);
-          const oy = hit.type === 'shape' && o.kind === 'line' ? shapeBoxOf(o).cy : (o.y || 0);
-          dragState = {
-            mode: 'move',
-            isText: hit.type === 'text',
-            isShape: hit.type === 'shape',
-            index: hit.index,
-            ox: pt.x - ox,
-            oy: pt.y - oy,
-            lineOrigin: hit.type === 'shape' && o.kind === 'line'
-              ? (o.points || []).map(p => ({ x: p.x, y: p.y }))
-              : null,
-            startX: pt.x,
-            startY: pt.y
-          };
-          prevEls.canvas.setPointerCapture(e.pointerId);
-        }
-      }
-      refreshAll();
-      scheduleDraw();
-      e.preventDefault();
-    });
-    prevEls.canvas.addEventListener('pointermove', e => {
-      if (!dragState) return;
-      const pt = canvasToPrev(e);
-      if (dragState.mode === 'draw' && dragState.stroke) {
-        dragState.stroke.points.push({ x: pt.x, y: pt.y });
-        scheduleDraw();
-        return;
-      }
-      const o = dragState.isText ? preview.texts[dragState.index]
-        : dragState.isShape ? preview.shapes[dragState.index]
-        : preview.layers[dragState.index];
-      if (!o) return;
-      if (dragState.mode === 'xf') {
-        const nb = boxFromDrag(dragState.drag, pt.x, pt.y);
-        if (dragState.isShape) applyShapeBox(o, nb);
-        else applyPreviewBox(o, dragState.isText, nb);
-        refreshAll();
-      } else if (dragState.isShape && o.kind === 'line' && dragState.lineOrigin) {
-        const dx = pt.x - dragState.startX;
-        const dy = pt.y - dragState.startY;
-        o.points = dragState.lineOrigin.map(p => ({ x: p.x + dx, y: p.y + dy }));
-        o.x = Math.round(shapeBoxOf(o).cx);
-        o.y = Math.round(shapeBoxOf(o).cy);
-      } else {
-        o.x = Math.round(pt.x - dragState.ox);
-        o.y = Math.round(pt.y - dragState.oy);
-      }
-      scheduleDraw();
-    });
-    const endDrag = () => { dragState = null; };
-    prevEls.canvas.addEventListener('pointerup', endDrag);
-    prevEls.canvas.addEventListener('pointercancel', endDrag);
-
-    prevEls.status = el('div', { fontSize: '11px', opacity: '0.7', minHeight: '14px', flexShrink: '0' }, '');
-
-    const leftCol = el('div', {
-      flex: '1', minWidth: '0', display: 'flex', flexDirection: 'column', gap: '8px',
-      padding: '10px', boxSizing: 'border-box'
-    });
-    leftCol.append(el('div', { fontSize: '22px', fontWeight: '700', flexShrink: '0' }, 'preview editor'), previewBox, prevEls.status);
-
-    const rightCol = el('div', {
-      width: '360px', flexShrink: '0', display: 'flex', flexDirection: 'column', gap: '8px',
-      overflowY: 'auto', padding: '10px', boxSizing: 'border-box', borderLeft: '1px solid #333'
-    });
-    rightCol.append(
-      makeGroup('Picture', buildPictureGroup),
-      makeGroup('Image', b => buildLayerGroup(b, 'image')),
-      makeGroup('shapes n` lines', buildShapesGroup),
-      makeGroup('draw', buildDrawGroup),
-      makeGroup('Text', buildTextGroup),
-      makeGroup('Effects', buildEffectsGroup),
-      makeGroup('Logo', b => buildLayerGroup(b, 'logo')),
-      row(
-        button('Download', () => {
-          downloadPreviewPng().catch(e => setPrevStatus('error: ' + (e.message || e)));
-        }),
-        button('Add to Sprite (png)', () => {
-          addPreviewToSpritePng().catch(e => setPrevStatus('error: ' + (e.message || e)));
-        })
-      )
-    );
-
-    const bodyRow = el('div', { flex: '1', minHeight: '0', display: 'flex', flexDirection: 'row', overflow: 'hidden' });
-    bodyRow.append(leftCol, rightCol);
-
-    prevWin.append(header, bodyRow);
-    document.body.appendChild(prevWin);
-    makeDraggable(header, prevWin);
-    refreshAll();
-    scheduleDraw();
+function onPreviewPointerDown(e) {
+  const pt = canvasToPrev(e);
+  if (preview.drawTool && preview.drawTool.active) {
+    const hitFirst = hitTest(pt.x, pt.y);
+    if (!hitFirst) { startStroke(pt, e); return; }
+    turnDrawOff();
   }
+  const sel = selectedPreviewBox();
+  if (sel) {
+    const spot = hitBoxHandle(sel.box, pt.x, pt.y, previewScale());
+    if (spot) {
+      dragState = {
+        mode: 'xf',
+        type: sel.isShape ? 'shape' : (sel.isText ? 'text' : 'layer'),
+        index: preview.sel.index,
+        drag: startBoxDrag(sel.box, spot, pt.x, pt.y, { ctrl: e.ctrlKey, alt: e.altKey })
+      };
+      prevEls.canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+  }
+  const hit = hitTest(pt.x, pt.y);
+  preview.sel = hit;
+  if (hit) {
+    const o = itemFor(hit);
+    if (o) {
+      dragState = makeMoveState(hit, o, pt);
+      prevEls.canvas.setPointerCapture(e.pointerId);
+    }
+  }
+  refreshAll();
+  scheduleDraw();
+  e.preventDefault();
+}
+
+function onPreviewPointerMove(e) {
+  if (!dragState) return;
+  const pt = canvasToPrev(e);
+  if (dragState.mode === 'draw') {
+    dragState.stroke.points.push({ x: pt.x, y: pt.y });
+    scheduleDraw();
+    return;
+  }
+  const o = itemFor({ type: dragState.type, index: dragState.index });
+  if (!o) return;
+  if (dragState.mode === 'xf') {
+    const nb = boxFromDrag(dragState.drag, pt.x, pt.y);
+    if (dragState.type === 'shape') applyShapeBox(o, nb);
+    else applyPreviewBox(o, dragState.type === 'text', nb);
+    refreshAll();
+  } else if (dragState.lineOrigin) {
+    const dx = pt.x - dragState.startX, dy = pt.y - dragState.startY;
+    o.points = dragState.lineOrigin.map(p => ({ x: p.x + dx, y: p.y + dy }));
+    const c = shapeBoxOf(o);
+    o.x = Math.round(c.cx);
+    o.y = Math.round(c.cy);
+  } else {
+    o.x = Math.round(pt.x - dragState.ox);
+    o.y = Math.round(pt.y - dragState.oy);
+  }
+  scheduleDraw();
+}
+
+function endPreviewDrag() { dragState = null; }
+
+function buildPreviewWindow() {
+  if (prevWin) prevWin.remove();
+  refreshers.length = 0;
+
+  prevWin = el('div', {
+    position: 'fixed', top: '60px', left: '90px', width: '940px', height: '580px',
+    minWidth: '320px', minHeight: '380px', background: '#000000',
+    border: '2px solid #ffffff', borderRadius: '8px', zIndex: '999999',
+    display: 'none', flexDirection: 'column', resize: 'both', overflow: 'hidden',
+    boxSizing: 'border-box', boxShadow: '0px 10px 30px rgba(0,0,0,0.75)',
+    fontFamily: "'Rubik', sans-serif", userSelect: 'none', color: '#ffffff'
+  });
+  prevWin.id = 'sprunkassets-preview';
+
+  const header = el('div', {
+    background: '#141416', padding: '6px 12px', cursor: 'move', display: 'flex',
+    justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #333',
+    flexShrink: '0', boxSizing: 'border-box'
+  });
+  const icon = el('img', { height: '26px', width: '26px', objectFit: 'contain', pointerEvents: 'none' });
+  icon.src = ICON_URI;
+  icon.alt = 'sprunkassets';
+  const title = el('span', { fontSize: '13px', fontWeight: '700', marginLeft: '8px', flex: '1' }, 'sprunkassets');
+  const closeBtn = el('div', {
+    width: '20px', height: '20px', backgroundColor: '#8b0000', border: '1px solid #ffffff',
+    borderRadius: '50%', color: '#ffffff', fontSize: '11px', fontWeight: 'bold',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+  }, 'X');
+  closeBtn.setAttribute('data-sa-close', '1');
+  closeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    prevWin.style.display = 'none';
+  });
+  header.append(icon, title, closeBtn);
+
+  const previewBox = el('div', {
+    flex: '1', minHeight: '0', border: '1.5px dashed #555', borderRadius: '8px',
+    background: preview.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden', position: 'relative'
+  });
+  previewBox.className = 'sa-preview-canvas-box';
+  prevEls.previewBox = previewBox;
+  prevEls.canvas = document.createElement('canvas');
+  prevEls.canvas.width = PREV_W;
+  prevEls.canvas.height = PREV_H;
+  Object.assign(prevEls.canvas.style, { maxWidth: '100%', maxHeight: '100%', touchAction: 'none' });
+  prevEls.ctx = prevEls.canvas.getContext('2d');
+  previewBox.append(prevEls.canvas);
+
+  prevEls.canvas.addEventListener('pointerdown', onPreviewPointerDown);
+  prevEls.canvas.addEventListener('pointermove', onPreviewPointerMove);
+  prevEls.canvas.addEventListener('pointerup', endPreviewDrag);
+  prevEls.canvas.addEventListener('pointercancel', endPreviewDrag);
+
+  prevEls.status = el('div', { fontSize: '11px', opacity: '0.7', minHeight: '14px', flexShrink: '0' }, '');
+
+  const leftCol = el('div', {
+    flex: '1', minWidth: '0', display: 'flex', flexDirection: 'column', gap: '8px',
+    padding: '10px', boxSizing: 'border-box'
+  });
+  leftCol.className = 'sa-preview-left';
+  leftCol.append(el('div', { fontSize: '22px', fontWeight: '700', flexShrink: '0' }, 'preview editor'), previewBox, prevEls.status);
+
+  const rightCol = el('div', {
+    width: '360px', flexShrink: '0', display: 'flex', flexDirection: 'column', gap: '8px',
+    overflowY: 'auto', padding: '10px', boxSizing: 'border-box', borderLeft: '1px solid #333'
+  });
+  rightCol.className = 'sa-preview-right';
+  rightCol.append(
+    makeGroup('Picture', buildPictureGroup),
+    makeGroup('Image', b => buildLayerGroup(b, 'image')),
+    makeGroup('shapes n` lines', buildShapesGroup),
+    makeGroup('draw', buildDrawGroup),
+    makeGroup('Text', buildTextGroup),
+    makeGroup('Effects', buildEffectsGroup),
+    makeGroup('Logo', b => buildLayerGroup(b, 'logo')),
+    row(
+      button('Download', () => {
+        downloadPreviewPng().catch(e => setPrevStatus('error: ' + (e.message || e)));
+      }),
+      button('Add to Sprite (png)', () => {
+        addPreviewToSpritePng().catch(e => setPrevStatus('error: ' + (e.message || e)));
+      })
+    )
+  );
+
+  const bodyRow = el('div', { flex: '1', minHeight: '0', display: 'flex', flexDirection: 'row', overflow: 'hidden' });
+  bodyRow.className = 'sa-preview-body';
+  bodyRow.append(leftCol, rightCol);
+
+  prevWin.append(header, bodyRow);
+  document.body.appendChild(prevWin);
+  makeDraggable(header, prevWin);
+  refreshAll();
+  scheduleDraw();
+}
 
   async function openPreviewWindow() {
     if (!prevWin || !document.body.contains(prevWin)) buildPreviewWindow();
