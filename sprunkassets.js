@@ -154,12 +154,54 @@
     return null;
   }
 
+  function fandomUrlCandidates(url) {
+    const u = String(url || '');
+    const out = [];
+    const add = x => { if (x && !out.includes(x)) out.push(x); };
+    add(u);
+    try {
+      const noHash = u.split('#')[0];
+      const noQuery = noHash.split('?')[0];
+      add(noQuery);
+      const noRev = noQuery.replace(/\/revision\/[^/]+$/i, '');
+      add(noRev);
+      if (/\/revision\//i.test(noQuery)) {
+        const base = noQuery.replace(/\/revision\/[^/]+$/i, '');
+        add(base + '/revision/latest');
+      }
+      if (noRev.includes('static.wikia.nocookie.net')) {
+        add(noRev.replace('static.wikia.nocookie.net', 'vignette.wikia.nocookie.net'));
+        add(noRev.replace('static.wikia.nocookie.net', 'static.wikia.nocookie.net') + '/revision/latest');
+      }
+      if (noRev.includes('vignette.wikia.nocookie.net')) {
+        add(noRev.replace('vignette.wikia.nocookie.net', 'static.wikia.nocookie.net'));
+      }
+    } catch (e) { /* keep original only */ }
+    return out;
+  }
+
   async function download(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    const buffer = await res.arrayBuffer();
-    const mime = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-    return { buffer, bytes: new Uint8Array(buffer), mime };
+    const candidates = fandomUrlCandidates(url);
+    let lastErr = null;
+    for (const candidate of candidates) {
+      try {
+        const res = await fetch(candidate, { redirect: 'follow' });
+        if (!res.ok) {
+          lastErr = new Error(`HTTP ${res.status} for ${candidate}`);
+          continue;
+        }
+        const buffer = await res.arrayBuffer();
+        if (!buffer || buffer.byteLength < 8) {
+          lastErr = new Error('empty response for ' + candidate);
+          continue;
+        }
+        const mime = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+        return { buffer, bytes: new Uint8Array(buffer), mime, url: candidate };
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error('HTTP failed for ' + url);
   }
 
   async function imageSize(buffer, format) {
@@ -469,7 +511,7 @@
         const sizeStr = formatSize(info.size || 0);
         const fileName = safeDecode(base.split('/').pop() || 'file');
         const isGif = mime === 'image/gif' || /\.gif$/i.test(fileName);
-        return kind ? { url: info.url, mime, kind, isGif, name: fileName, sizeStr } : null;
+        return kind ? { url: base || info.url, mime, kind, isGif, name: fileName, sizeStr, urlAlt: info.url } : null;
       })
       .filter(Boolean);
 
@@ -514,7 +556,7 @@
           const sizeStr = formatSize(info.size || 0);
           const fileName = safeDecode(base.split('/').pop() || 'file');
           const isGif = mime === 'image/gif' || /\.gif$/i.test(fileName);
-          return kind ? { url: info.url, mime, kind, isGif, name: fileName, sizeStr } : null;
+          return kind ? { url: base || info.url, mime, kind, isGif, name: fileName, sizeStr, urlAlt: info.url } : null;
         })
         .filter(Boolean);
       const data = {
@@ -557,7 +599,6 @@
 
   function clampT(v) { return Math.max(-TAN_MAX, Math.min(TAN_MAX, v)); }
 
-  // skew: x' = x + tx*y, y' = y + ty*x
   function skewFwd(x, y, tx, ty) {
     return { x: x + tx * y, y: y + ty * x };
   }
@@ -813,9 +854,8 @@
 
   async function downloadFile(f) {
     try {
-      const res = await fetch(f.url);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const blob = await res.blob();
+      const { buffer } = await download(f.urlAlt || f.url);
+      const blob = new Blob([buffer], { type: f.mime || 'application/octet-stream' });
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
@@ -826,7 +866,8 @@
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       setStatus('downloaded ' + f.name);
     } catch (e) {
-      window.open(f.url, '_blank');
+      const openUrl = f.urlAlt || f.url;
+      window.open(openUrl, '_blank');
       setStatus('opened ' + f.name + ' in a new tab');
     }
   }
@@ -1573,7 +1614,6 @@
     googleLoaded.add(family);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    // load regular + bold + italic so B / I toggles work
     link.href = `https://fonts.googleapis.com/css2?family=${googleParam(family)}:ital,wght@0,400;0,700;1,400;1,700&display=swap`;
     document.head.appendChild(link);
   }
